@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/app_theme.dart';
+import '../models/models.dart';
 import 'register_screen.dart';
 import 'home_screen.dart';
 

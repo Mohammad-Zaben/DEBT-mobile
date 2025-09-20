@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/app_theme.dart';
+import '../models/models.dart';
 import 'welcome_screen.dart';
+import 'otp_screen.dart';
+import 'providers_list_screen.dart';
+import 'create_transaction_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final User user;
@@ -163,26 +167,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     position: _slideAnimation,
                     child: FadeTransition(
                       opacity: _fadeAnimation,
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 20),
-                            
-                            // Quick Actions
-                            if (widget.user.isUser) ..._buildUserActions(),
-                            if (widget.user.isProvider) ..._buildProviderActions(),
-                            
-                            const SizedBox(height: 30),
-                            
-                            // Recent Activity Section
-                            _buildSectionHeader('النشاط الأخير'),
-                            const SizedBox(height: 16),
-                            
-                            // Placeholder for recent transactions
-                            Expanded(
-                              child: Container(
+                      child: SingleChildScrollView(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 20),
+                              
+                              // Quick Actions
+                              if (widget.user.isUser) ..._buildUserActions(),
+                              if (widget.user.isProvider) ..._buildProviderActions(),
+                              
+                              const SizedBox(height: 30),
+                              
+                              // Recent Activity Section
+                              _buildSectionHeader('النشاط الأخير'),
+                              const SizedBox(height: 16),
+                              
+                              // Placeholder for recent transactions
+                              Container(
                                 width: double.infinity,
+                                height: 200,
                                 padding: const EdgeInsets.all(32),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
@@ -200,14 +205,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                   children: [
                                     Icon(
                                       Icons.receipt_long_outlined,
-                                      size: 64,
+                                      size: 48,
                                       color: AppTheme.textLight,
                                     ),
                                     SizedBox(height: 16),
                                     Text(
                                       'لا توجد معاملات حتى الآن',
                                       style: TextStyle(
-                                        fontSize: 18,
+                                        fontSize: 16,
                                         color: AppTheme.textSecondary,
                                       ),
                                     ),
@@ -215,15 +220,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                     Text(
                                       'ستظهر معاملاتك الأخيرة هنا',
                                       style: TextStyle(
-                                        fontSize: 14,
+                                        fontSize: 12,
                                         color: AppTheme.textLight,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                            ),
-                          ],
+                              
+                              const SizedBox(height: 20),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -265,8 +272,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               icon: Icons.security,
               color: AppTheme.primaryColor,
               onTap: () {
-                // TODO: Navigate to OTP screen
-                _showComingSoon('رمز التحقق');
+                Navigator.push(
+                  context,
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) => 
+                        const OtpScreen(),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      return SlideTransition(
+                        position: animation.drive(
+                          Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
+                            .chain(CurveTween(curve: Curves.ease)),
+                        ),
+                        child: child,
+                      );
+                    },
+                  ),
+                );
               },
             ),
           ),
@@ -278,8 +299,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               icon: Icons.people,
               color: AppTheme.accentColor,
               onTap: () {
-                // TODO: Navigate to providers screen
-                _showComingSoon('مزودو الخدمة');
+                Navigator.push(
+                  context,
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) => 
+                        const ProvidersListScreen(),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      return SlideTransition(
+                        position: animation.drive(
+                          Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
+                            .chain(CurveTween(curve: Curves.ease)),
+                        ),
+                        child: child,
+                      );
+                    },
+                  ),
+                );
               },
             ),
           ),
@@ -329,8 +364,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               icon: Icons.add_card,
               color: AppTheme.primaryColor,
               onTap: () {
-                // TODO: Navigate to new transaction screen
-                _showComingSoon('معاملة جديدة');
+                Navigator.push(
+                  context,
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) => 
+                        CreateTransactionScreen(currentUser: widget.user),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      return SlideTransition(
+                        position: animation.drive(
+                          Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
+                            .chain(CurveTween(curve: Curves.ease)),
+                        ),
+                        child: child,
+                      );
+                    },
+                  ),
+                );
               },
             ),
           ),
