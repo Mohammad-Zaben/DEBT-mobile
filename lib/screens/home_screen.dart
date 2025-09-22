@@ -6,6 +6,7 @@ import 'welcome_screen.dart';
 import 'otp_screen.dart';
 import 'providers_list_screen.dart';
 import 'create_transaction_screen.dart';
+import 'clients_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final User user;
@@ -391,8 +392,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               icon: Icons.group,
               color: AppTheme.accentColor,
               onTap: () {
-                // TODO: Navigate to clients screen
-                _showComingSoon('العملاء');
+                Navigator.push(
+                  context,
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) => 
+                        const ClientsScreen(),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      return SlideTransition(
+                        position: animation.drive(
+                          Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
+                            .chain(CurveTween(curve: Curves.ease)),
+                        ),
+                        child: child,
+                      );
+                    },
+                  ),
+                );
               },
             ),
           ),

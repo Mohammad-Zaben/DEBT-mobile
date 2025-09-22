@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/app_theme.dart';
 import '../models/models.dart';
+import 'create_transaction_screen.dart';
 
 class TransactionHistoryScreen extends StatefulWidget {
-  final LinkedProvider provider;
+  final LinkedProvider? provider;
+  final LinkedClient? client;
   
-  const TransactionHistoryScreen({super.key, required this.provider});
+  const TransactionHistoryScreen({
+    super.key, 
+    this.provider,
+    this.client,
+  });
 
   @override
   State<TransactionHistoryScreen> createState() => _TransactionHistoryScreenState();
@@ -18,6 +24,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
   BalanceSummary? _balance;
   bool _isLoading = true;
   String? _error;
+  User? _currentUser;
   
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -64,7 +71,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
     });
 
     try {
-      // Get current user to determine user ID
+      // Get current user first
       final userResponse = await ApiService().getCurrentUser();
       if (!userResponse.success || userResponse.data == null) {
         setState(() {
@@ -74,8 +81,26 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
         return;
       }
       
-      final userId = userResponse.data!.id;
-      final providerId = widget.provider.providerId;
+      _currentUser = userResponse.data!;
+      
+      // Determine user ID and provider ID based on context
+      int userId, providerId;
+      
+      if (widget.provider != null) {
+        // Called from user's perspective (viewing provider transactions)
+        userId = _currentUser!.id;
+        providerId = widget.provider!.providerId;
+      } else if (widget.client != null) {
+        // Called from provider's perspective (viewing client transactions)
+        userId = widget.client!.userId;
+        providerId = _currentUser!.id;
+      } else {
+        setState(() {
+          _error = 'خطأ في البيانات المرسلة';
+          _isLoading = false;
+        });
+        return;
+      }
       
       // Load transactions and balance in parallel
       final transactionsResponse = await ApiService().getTransactionsPair(userId, providerId);
@@ -106,21 +131,93 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
     }
   }
 
+  void _navigateToCreateTransaction() {
+    if (_currentUser == null) return;
+    
+    // Create LinkedClient object for the create transaction screen
+    LinkedClient? targetClient;
+    
+    if (widget.client != null) {
+      // Provider viewing client - pass the client directly
+      targetClient = widget.client!;
+    } else if (widget.provider != null) {
+      // User viewing provider - this shouldn't happen as users don't create transactions
+      // But we handle it just in case
+      return;
+    }
+    
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            CreateTransactionScreen(
+              currentUser: _currentUser!,
+              selectedClient: targetClient,
+            ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return SlideTransition(
+            position: animation.drive(
+              Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
+                .chain(CurveTween(curve: Curves.ease)),
+            ),
+            child: child,
+          );
+        },
+      ),
+    ).then((result) {
+      // Reload transactions if a new transaction was created
+      if (result == true) {
+        _loadTransactions();
+      }
+    });
+  }
+
+  String _getScreenTitle() {
+    if (widget.provider != null) {
+      return widget.provider!.providerName;
+    } else if (widget.client != null) {
+      return widget.client!.userName;
+    } else {
+      return 'المعاملات';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.provider.providerName),
+        title: Text(_getScreenTitle()),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          // Show add transaction button only for providers viewing client transactions
+          if (_currentUser != null && 
+              _currentUser!.isProvider && 
+              widget.client != null)
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: _navigateToCreateTransaction,
+              tooltip: 'إضافة معاملة جديدة',
+            ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: _loadTransactions,
         color: AppTheme.primaryColor,
         child: _buildBody(),
       ),
+      // Floating action button for providers
+      floatingActionButton: (_currentUser != null && 
+                           _currentUser!.isProvider && 
+                           widget.client != null)
+          ? FloatingActionButton(
+              onPressed: _navigateToCreateTransaction,
+              backgroundColor: AppTheme.primaryColor,
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 
@@ -179,6 +276,12 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
           // Balance Summary Card
           if (_balance != null) _buildBalanceCard(),
           
+          // Add Transaction Card (for providers)
+          if (_currentUser != null && 
+              _currentUser!.isProvider && 
+              widget.client != null)
+            _buildAddTransactionCard(),
+          
           // Transactions List
           Expanded(
             child: _transactions.isEmpty
@@ -191,9 +294,29 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
   }
 
   Widget _buildBalanceCard() {
-    final isLender = widget.provider.providerType == 'lender';
+    final isProvider = _currentUser?.isProvider ?? false;
+    final isLender = _currentUser?.isLender ?? false;
     final balance = double.parse(_balance!.balance);
     final isPositive = balance >= 0;
+    
+    Color cardColor;
+    String balanceTitle;
+    
+    if (isProvider) {
+      if (isLender) {
+        // Lender provider - positive balance means client owes money
+        cardColor = isPositive ? AppTheme.warningColor : AppTheme.successColor;
+        balanceTitle = 'الرصيد';
+      } else {
+        // Payer provider - balance represents payments made
+        cardColor = AppTheme.successColor;
+        balanceTitle = 'إجمالي المدفوعات';
+      }
+    } else {
+      // User viewing provider - positive balance means they owe money
+      cardColor = isPositive ? AppTheme.warningColor : AppTheme.successColor;
+      balanceTitle = 'الرصيد';
+    }
     
     return SlideTransition(
       position: _slideAnimation,
@@ -204,16 +327,15 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: isLender
-                ? (isPositive 
-                    ? [AppTheme.warningColor, AppTheme.warningColor.withOpacity(0.8)]
-                    : [AppTheme.successColor, AppTheme.successColor.withOpacity(0.8)])
-                : [AppTheme.successColor, AppTheme.successColor.withOpacity(0.8)],
+            colors: [
+              cardColor,
+              cardColor.withOpacity(0.8),
+            ],
           ),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: (isLender ? AppTheme.warningColor : AppTheme.successColor).withOpacity(0.3),
+              color: cardColor.withOpacity(0.3),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -224,7 +346,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
             Row(
               children: [
                 Icon(
-                  isLender 
+                  isProvider && isLender
                       ? (isPositive ? Icons.trending_up : Icons.trending_down)
                       : Icons.account_balance_wallet,
                   color: Colors.white,
@@ -236,7 +358,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isLender ? 'الرصيد' : 'إجمالي المدفوعات',
+                        balanceTitle,
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 16,
@@ -257,7 +379,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
               ],
             ),
             
-            if (isLender) ...[
+            if (isProvider && isLender) ...[
               const SizedBox(height: 20),
               const Divider(color: Colors.white30),
               const SizedBox(height: 12),
@@ -314,6 +436,76 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddTransactionCard() {
+    return SlideTransition(
+      position: _slideAnimation,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: InkWell(
+            onTap: _navigateToCreateTransaction,
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                    child: const Icon(
+                      Icons.add_card,
+                      color: AppTheme.primaryColor,
+                      size: 26,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'إضافة معاملة جديدة',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _currentUser!.isLender 
+                              ? 'إضافة دين أو دفعة لهذا العميل'
+                              : 'إضافة دفعة لهذا العميل',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.arrow_forward_ios,
+                    color: AppTheme.textLight,
+                    size: 16,
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -462,13 +654,31 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'لم تتم أي معاملات مع ${widget.provider.providerName}',
+            widget.client != null 
+                ? 'لم تتم أي معاملات مع ${widget.client!.userName}'
+                : 'لم تتم أي معاملات بعد',
             style: const TextStyle(
               fontSize: 14,
               color: AppTheme.textLight,
             ),
             textAlign: TextAlign.center,
           ),
+          
+          // Add transaction button for empty state
+          if (_currentUser != null && 
+              _currentUser!.isProvider && 
+              widget.client != null) ...[
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _navigateToCreateTransaction,
+              icon: const Icon(Icons.add),
+              label: const Text('إضافة معاملة أولى'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ],
         ],
       ),
     );

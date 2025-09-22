@@ -5,7 +5,7 @@ import '../models/models.dart';
 
 class ApiService {
   // TODO: Replace with your actual API base URL
-  static const String baseUrl = 'https://empty-squids-pump.loca.lt';
+  static const String baseUrl = 'https://bumpy-papayas-nail.loca.lt';
   
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();
@@ -155,6 +155,29 @@ class ApiService {
         return ApiResponse.success(User.fromJson(data));
       } else {
         return ApiResponse.error('خطأ في جلب بيانات المستخدم');
+      }
+    } catch (e) {
+      return ApiResponse.error('خطأ في الاتصال بالخادم');
+    }
+  }
+
+  // Get public user info by ID (no authentication required)
+  Future<ApiResponse<UserPublicInfo>> getUserPublicInfo(int userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/users/$userId/public'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        }, // No auth token needed for public endpoint
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return ApiResponse.success(UserPublicInfo.fromJson(data));
+      } else {
+        final error = jsonDecode(response.body);
+        return ApiResponse.error(error['detail'] ?? 'خطأ في العثور على المستخدم');
       }
     } catch (e) {
       return ApiResponse.error('خطأ في الاتصال بالخادم');

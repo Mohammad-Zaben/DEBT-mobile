@@ -34,6 +34,27 @@ class User {
   bool get isPayer => providerType == 'payer';
 }
 
+// User Public Info Model (for searching users)
+class UserPublicInfo {
+  final int id;
+  final String name;
+  final String email;
+
+  UserPublicInfo({
+    required this.id,
+    required this.name,
+    required this.email,
+  });
+
+  factory UserPublicInfo.fromJson(Map<String, dynamic> json) {
+    return UserPublicInfo(
+      id: json['id'],
+      name: json['name'],
+      email: json['email'],
+    );
+  }
+}
+
 // Provider Models
 class LinkedProvider {
   final int id;

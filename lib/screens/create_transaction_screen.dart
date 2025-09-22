@@ -38,8 +38,6 @@ class _CreateTransactionScreenState extends State<CreateTransactionScreen>
   void initState() {
     super.initState();
     
-    _selectedClient = widget.selectedClient;
-    
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -79,8 +77,24 @@ class _CreateTransactionScreenState extends State<CreateTransactionScreen>
       setState(() {
         if (response.success && response.data != null) {
           _clients = response.data!;
-          // Set first approved client as default if none selected
-          if (_selectedClient == null && _clients.isNotEmpty) {
+          
+          // Set the selected client based on the passed client
+          if (widget.selectedClient != null && _clients.isNotEmpty) {
+            // Find the client in the loaded list that matches the selected client by ID
+            try {
+              _selectedClient = _clients.firstWhere(
+                (client) => client.userId == widget.selectedClient!.userId,
+              );
+            } catch (e) {
+              // If not found in approved clients, still set it if it exists
+              _selectedClient = _clients.firstWhere(
+                (client) => client.userId == widget.selectedClient!.userId && 
+                           client.status == LinkStatus.approved,
+                orElse: () => _clients.isNotEmpty ? _clients.first : widget.selectedClient!,
+              );
+            }
+          } else if (_clients.isNotEmpty) {
+            // Set first approved client as default if none selected
             _selectedClient = _clients.firstWhere(
               (client) => client.status == LinkStatus.approved,
               orElse: () => _clients.first,
@@ -127,6 +141,8 @@ class _CreateTransactionScreenState extends State<CreateTransactionScreen>
       if (response.success) {
         _showSuccess('تم إنشاء المعاملة بنجاح');
         _clearForm();
+        // Return true to indicate successful transaction creation
+        Navigator.pop(context, true);
       } else {
         _showError(response.error ?? 'خطأ في إنشاء المعاملة');
       }
@@ -162,9 +178,10 @@ class _CreateTransactionScreenState extends State<CreateTransactionScreen>
       ),
     );
 
-    // If debt was successfully created, clear form
+    // If debt was successfully created, clear form and return to previous screen
     if (result == true) {
       _clearForm();
+      Navigator.pop(context, true);
     }
   }
 
@@ -202,7 +219,9 @@ class _CreateTransactionScreenState extends State<CreateTransactionScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('إنشاء معاملة جديدة'),
+        title: Text(widget.selectedClient != null 
+            ? 'معاملة جديدة - ${widget.selectedClient!.userName}'
+            : 'إنشاء معاملة جديدة'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
@@ -359,31 +378,10 @@ class _CreateTransactionScreenState extends State<CreateTransactionScreen>
                                 ),
                               )
                             else
-                              DropdownButtonFormField<LinkedClient>(
-                                value: _selectedClient,
-                                decoration: const InputDecoration(
-                                  prefixIcon: Icon(Icons.person),
-                                  hintText: 'اختر العميل',
-                                ),
-                                items: _clients
-                                    .where((client) => client.status == LinkStatus.approved)
-                                    .map((client) => DropdownMenuItem(
-                                          value: client,
-                                          child: Text(client.userName),
-                                        ))
-                                    .toList(),
-                                onChanged: (client) {
-                                  setState(() {
-                                    _selectedClient = client;
-                                  });
-                                },
-                                validator: (value) {
-                                  if (value == null) {
-                                    return 'يرجى اختيار العميل';
-                                  }
-                                  return null;
-                                },
-                              ),
+                              // Show selected client info if pre-selected, otherwise show dropdown
+                              widget.selectedClient != null
+                                  ? _buildSelectedClientCard()
+                                  : _buildClientDropdown(),
 
                             const SizedBox(height: 20),
 
@@ -495,6 +493,93 @@ class _CreateTransactionScreenState extends State<CreateTransactionScreen>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSelectedClientCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.successColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppTheme.successColor.withOpacity(0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: AppTheme.successColor.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: const Icon(
+              Icons.person,
+              color: AppTheme.successColor,
+              size: 26,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.selectedClient!.userName,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  widget.selectedClient!.userEmail,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.check_circle,
+            color: AppTheme.successColor,
+            size: 24,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClientDropdown() {
+    return DropdownButtonFormField<LinkedClient>(
+      value: _selectedClient,
+      decoration: const InputDecoration(
+        prefixIcon: Icon(Icons.person),
+        hintText: 'اختر العميل',
+      ),
+      items: _clients
+          .where((client) => client.status == LinkStatus.approved)
+          .map((client) => DropdownMenuItem(
+                value: client,
+                child: Text(client.userName),
+              ))
+          .toList(),
+      onChanged: (client) {
+        setState(() {
+          _selectedClient = client;
+        });
+      },
+      validator: (value) {
+        if (value == null) {
+          return 'يرجى اختيار العميل';
+        }
+        return null;
+      },
     );
   }
 
