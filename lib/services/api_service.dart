@@ -5,7 +5,7 @@ import '../models/models.dart';
 
 class ApiService {
   // TODO: Replace with your actual API base URL
-  static const String baseUrl = 'https://bumpy-papayas-nail.loca.lt';
+  static const String baseUrl = 'https://thick-plants-judge.loca.lt';
   
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();
@@ -341,6 +341,53 @@ class ApiService {
       return ApiResponse.error('خطأ في الاتصال بالخادم');
     }
   }
+
+
+  // Get user invitations (for users to see pending invitations)
+  Future<ApiResponse<List<UserProviderInvitation>>> getUserInvitations() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/links/invitations'),
+        headers: _headers,
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        final invitations = data.map((json) => UserProviderInvitation.fromJson(json)).toList();
+        return ApiResponse.success(invitations);
+      } else {
+        final error = jsonDecode(response.body);
+        return ApiResponse.error(error['detail'] ?? 'خطأ في جلب الدعوات');
+      }
+    } catch (e) {
+      return ApiResponse.error('خطأ في الاتصال بالخادم');
+    }
+  }
+
+  // Update invitation status (approve/reject)
+  Future<ApiResponse<UserProviderLink>> updateInvitationStatus(int invitationId, LinkStatus status) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/links/invitations/$invitationId/status'),
+        headers: _headers,
+        body: jsonEncode({
+          'status': status.toString().split('.').last, // Convert enum to string
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return ApiResponse.success(UserProviderLink.fromJson(data));
+      } else {
+        final error = jsonDecode(response.body);
+        return ApiResponse.error(error['detail'] ?? 'خطأ في تحديث حالة الدعوة');
+      }
+    } catch (e) {
+      return ApiResponse.error('خطأ في الاتصال بالخادم');
+    }
+  }
+
+
 }
 
 // API Response wrapper
@@ -359,3 +406,4 @@ class ApiResponse<T> {
     return ApiResponse._(success: false, error: error);
   }
 }
+

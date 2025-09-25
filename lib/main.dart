@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'screens/welcome_screen.dart';
+import 'screens/splash_screen.dart';
 import 'utils/app_theme.dart';
 
 void main() {
@@ -17,7 +17,7 @@ class MyApp extends StatelessWidget {
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
+        statusBarIconBrightness: Brightness.light, // Changed to light for dark splash
       ),
     );
 
@@ -40,8 +40,8 @@ class MyApp extends StatelessWidget {
       // App theme
       theme: AppTheme.lightTheme,
       
-      // Start with welcome screen
-      home: const WelcomeScreen(),
+      // Start with splash screen instead of welcome screen
+      home: const SplashScreen(),
     );
   }
 }

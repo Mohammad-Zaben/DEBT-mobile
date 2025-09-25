@@ -313,3 +313,37 @@ class WorkPaymentSummary {
     );
   }
 }
+
+
+// Add this class to your existing lib/models/models.dart file
+
+class UserProviderInvitation {
+  final int id;
+  final int providerId;
+  final String providerName;
+  final String providerEmail;
+  final LinkStatus status;
+  final DateTime createdAt;
+
+  UserProviderInvitation({
+    required this.id,
+    required this.providerId,
+    required this.providerName,
+    required this.providerEmail,
+    required this.status,
+    required this.createdAt,
+  });
+
+  factory UserProviderInvitation.fromJson(Map<String, dynamic> json) {
+    return UserProviderInvitation(
+      id: json['id'],
+      providerId: json['provider_id'],
+      providerName: json['provider_name'],
+      providerEmail: json['provider_email'],
+      status: LinkStatus.values.firstWhere(
+        (e) => e.toString().split('.').last == json['status'],
+      ),
+      createdAt: DateTime.parse(json['created_at']),
+    );
+  }
+}

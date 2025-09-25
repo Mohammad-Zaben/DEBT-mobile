@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/app_theme.dart';
 import '../models/models.dart';
-import 'welcome_screen.dart';
+import 'login_screen.dart';
 import 'otp_screen.dart';
 import 'providers_list_screen.dart';
 import 'create_transaction_screen.dart';
 import 'clients_screen.dart';
+import 'user_account_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final User user;
@@ -63,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         context,
         PageRouteBuilder(
           pageBuilder: (context, animation, secondaryAnimation) => 
-              const WelcomeScreen(),
+              const LoginScreen(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(opacity: animation, child: child);
           },
@@ -262,97 +263,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return 'مستخدم';
   }
 
-  List<Widget> _buildUserActions() {
-    return [
-      Row(
-        children: [
-          Expanded(
-            child: _buildActionCard(
-              title: 'رمز التحقق',
-              subtitle: 'احصل على رمز OTP',
-              icon: Icons.security,
-              color: AppTheme.primaryColor,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  PageRouteBuilder(
-                    pageBuilder: (context, animation, secondaryAnimation) => 
-                        const OtpScreen(),
-                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                      return SlideTransition(
-                        position: animation.drive(
-                          Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
-                            .chain(CurveTween(curve: Curves.ease)),
-                        ),
-                        child: child,
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _buildActionCard(
-              title: 'مزودي الخدمة',
-              subtitle: 'عرض جميع المزودين',
-              icon: Icons.people,
-              color: AppTheme.accentColor,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  PageRouteBuilder(
-                    pageBuilder: (context, animation, secondaryAnimation) => 
-                        const ProvidersListScreen(),
-                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                      return SlideTransition(
-                        position: animation.drive(
-                          Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
-                            .chain(CurveTween(curve: Curves.ease)),
-                        ),
-                        child: child,
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 16),
-      Row(
-        children: [
-          Expanded(
-            child: _buildActionCard(
-              title: 'الديون',
-              subtitle: 'تتبع ديونك',
-              icon: Icons.credit_card,
-              color: AppTheme.warningColor,
-              onTap: () {
-                // TODO: Navigate to debts screen
-                _showComingSoon('الديون');
-              },
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _buildActionCard(
-              title: 'المدفوعات',
-              subtitle: 'عرض المدفوعات',
-              icon: Icons.payment,
-              color: AppTheme.successColor,
-              onTap: () {
-                // TODO: Navigate to payments screen
-                _showComingSoon('المدفوعات');
-              },
-            ),
-          ),
-        ],
-      ),
-    ];
-  }
+  
 
   List<Widget> _buildProviderActions() {
     return [
@@ -448,6 +359,116 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
     ];
   }
+
+
+
+List<Widget> _buildUserActions() {
+  return [
+    Row(
+      children: [
+        Expanded(
+          child: _buildActionCard(
+            title: 'رمز التحقق',
+            subtitle: 'احصل على رمز OTP',
+            icon: Icons.security,
+            color: AppTheme.primaryColor,
+            onTap: () {
+              Navigator.push(
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) => 
+                      const OtpScreen(),
+                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                    return SlideTransition(
+                      position: animation.drive(
+                        Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
+                          .chain(CurveTween(curve: Curves.ease)),
+                      ),
+                      child: child,
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _buildActionCard(
+            title: 'حسابي',
+            subtitle: 'إعدادات الحساب والطلبات',
+            icon: Icons.person,
+            color: AppTheme.accentColor,
+            onTap: () {
+              Navigator.push(
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) => 
+                      UserAccountScreen(user: widget.user),
+                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                    return SlideTransition(
+                      position: animation.drive(
+                        Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
+                          .chain(CurveTween(curve: Curves.ease)),
+                      ),
+                      child: child,
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    ),
+    const SizedBox(height: 16),
+    Row(
+      children: [
+        Expanded(
+          child: _buildActionCard(
+            title: 'مزودي الخدمة',
+            subtitle: 'عرض جميع المزودين',
+            icon: Icons.people,
+            color: AppTheme.successColor,
+            onTap: () {
+              Navigator.push(
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) => 
+                      const ProvidersListScreen(),
+                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                    return SlideTransition(
+                      position: animation.drive(
+                        Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
+                          .chain(CurveTween(curve: Curves.ease)),
+                      ),
+                      child: child,
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _buildActionCard(
+            title: 'الديون',
+            subtitle: 'تتبع ديونك',
+            icon: Icons.credit_card,
+            color: AppTheme.warningColor,
+            onTap: () {
+              // TODO: Navigate to debts screen
+              _showComingSoon('الديون');
+            },
+          ),
+        ),
+      ],
+    ),
+  ];
+}
+
+
 
   Widget _buildActionCard({
     required String title,

@@ -688,17 +688,18 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen>
     final now = DateTime.now();
     final difference = now.difference(date);
     
-    if (difference.inDays == 0) {
-      if (difference.inHours == 0) {
-        return 'منذ ${difference.inMinutes} دقيقة';
-      }
-      return 'منذ ${difference.inHours} ساعة';
-    } else if (difference.inDays == 1) {
-      return 'أمس';
-    } else if (difference.inDays < 7) {
-      return 'منذ ${difference.inDays} أيام';
-    } else {
-      return '${date.day}/${date.month}/${date.year}';
-    }
+    // if (difference.inDays == 0) {
+    //   if (difference.inHours == 0) {
+    //     return 'منذ ${difference.inMinutes} دقيقة';
+    //   }
+    //   return 'منذ ${difference.inHours} ساعة';
+    // } else if (difference.inDays == 1) {
+    //   return 'أمس';
+    // } else if (difference.inDays < 7) {
+    //   return 'منذ ${difference.inDays} أيام';
+    // } else {
+    //   return '${date.day}/${date.month}/${date.year}';
+    // }
+    return '${date.day}/${date.month}/${date.year}';
   }
 }
