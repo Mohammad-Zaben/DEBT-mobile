@@ -29,6 +29,9 @@ dependencies:
   # Animations
   lottie: ^2.7.0
   animations: ^2.0.8
+  
+  # Cryptography for OTP generation
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:

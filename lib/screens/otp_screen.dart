@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 import '../services/api_service.dart';
 import '../utils/app_theme.dart';
+import '../utils/otp_generator.dart';
+import '../models/models.dart';
 
 class OtpScreen extends StatefulWidget {
   const OtpScreen({super.key});
@@ -17,6 +19,8 @@ class _OtpScreenState extends State<OtpScreen>
   bool _isLoading = false;
   Timer? _otpTimer;
   int _secondsRemaining = 0;
+  User? _currentUser;
+  String? _error;
   
   late AnimationController _animationController;
   late AnimationController _pulseController;
@@ -63,7 +67,7 @@ class _OtpScreenState extends State<OtpScreen>
     ));
     
     _animationController.forward();
-    _generateNewOtp();
+    _loadUserAndGenerateOtp();
   }
 
   @override
@@ -74,19 +78,63 @@ class _OtpScreenState extends State<OtpScreen>
     super.dispose();
   }
 
+  Future<void> _loadUserAndGenerateOtp() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      // Get current user to access secret key
+      final userResponse = await ApiService().getCurrentUser();
+      
+      if (userResponse.success && userResponse.data != null) {
+        _currentUser = userResponse.data!;
+        
+        if (_currentUser!.secretKey != null && _currentUser!.secretKey!.isNotEmpty) {
+          _generateNewOtp();
+        } else {
+          setState(() {
+            _error = 'لا يوجد مفتاح سري للمستخدم';
+            _isLoading = false;
+          });
+        }
+      } else {
+        setState(() {
+          _error = 'خطأ في جلب بيانات المستخدم';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _error = 'خطأ في الاتصال بالخادم';
+        _isLoading = false;
+      });
+    }
+  }
+
   void _generateNewOtp() async {
+    if (_currentUser?.secretKey == null) {
+      setState(() {
+        _error = 'لا يوجد مفتاح سري للمستخدم';
+        _isLoading = false;
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _currentOtp = '';
+      _error = null;
     });
 
-    // Fixed OTP as requested - simple approach
-    await Future.delayed(const Duration(seconds: 1));
+    // Generate dynamic OTP using the user's secret key
+    await Future.delayed(const Duration(milliseconds: 800));
     
     setState(() {
-      _currentOtp = '1'; // Fixed OTP number as requested
+      _currentOtp = OtpGenerator.generateVerificationCode(_currentUser!.secretKey!);
       _isLoading = false;
-      _secondsRemaining = 300; // OTP valid for 5 minutes
+      _secondsRemaining = OtpGenerator.getSecondsUntilNextCode();
     });
 
     // Start pulse animation for the OTP
@@ -106,10 +154,8 @@ class _OtpScreenState extends State<OtpScreen>
         if (_secondsRemaining > 0) {
           _secondsRemaining--;
         } else {
-          timer.cancel();
-          _pulseController.stop();
-          _currentOtp = '';
-          _showMessage('انتهت صلاحية رمز التحقق', AppTheme.warningColor);
+          // Time to generate new OTP
+          _generateNewOtp();
         }
       });
     });
@@ -132,6 +178,12 @@ class _OtpScreenState extends State<OtpScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
+  }
+
+  String _formatTime(int seconds) {
+    int minutes = seconds ~/ 60;
+    int remainingSeconds = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -226,6 +278,26 @@ class _OtpScreenState extends State<OtpScreen>
                               color: AppTheme.textSecondary,
                             ),
                           ),
+                        ] else if (_error != null) ...[
+                          const Icon(
+                            Icons.error_outline,
+                            size: 64,
+                            color: AppTheme.errorColor,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            _error!,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: AppTheme.errorColor,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadUserAndGenerateOtp,
+                            child: const Text('إعادة المحاولة'),
+                          ),
                         ] else if (_currentOtp.isNotEmpty) ...[
                           const Text(
                             'رمز التحقق الحالي',
@@ -244,11 +316,11 @@ class _OtpScreenState extends State<OtpScreen>
                               return Transform.scale(
                                 scale: _pulseAnimation.value,
                                 child: Container(
-                                  width: 120,
+                                  width: 200,
                                   height: 120,
                                   decoration: BoxDecoration(
                                     color: AppTheme.primaryColor,
-                                    borderRadius: BorderRadius.circular(60),
+                                    borderRadius: BorderRadius.circular(20),
                                     boxShadow: [
                                       BoxShadow(
                                         color: AppTheme.primaryColor.withOpacity(0.3),
@@ -261,9 +333,10 @@ class _OtpScreenState extends State<OtpScreen>
                                     child: Text(
                                       _currentOtp,
                                       style: const TextStyle(
-                                        fontSize: 48,
+                                        fontSize: 32,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.white,
+                                        letterSpacing: 4,
                                       ),
                                     ),
                                   ),
@@ -278,24 +351,30 @@ class _OtpScreenState extends State<OtpScreen>
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withOpacity(0.1),
+                              color: _secondsRemaining > 10 
+                                  ? AppTheme.successColor.withOpacity(0.1)
+                                  : AppTheme.warningColor.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  Icons.check_circle,
+                                  Icons.access_time,
                                   size: 16,
-                                  color: AppTheme.primaryColor,
+                                  color: _secondsRemaining > 10 
+                                      ? AppTheme.successColor
+                                      : AppTheme.warningColor,
                                 ),
                                 const SizedBox(width: 8),
-                                const Text(
-                                  'رمز ثابت جاهز للاستخدام',
+                                Text(
+                                  'ينتهي خلال ${_formatTime(_secondsRemaining)}',
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
-                                    color: AppTheme.primaryColor,
+                                    color: _secondsRemaining > 10 
+                                        ? AppTheme.successColor
+                                        : AppTheme.warningColor,
                                   ),
                                 ),
                               ],
@@ -317,20 +396,6 @@ class _OtpScreenState extends State<OtpScreen>
                               ),
                             ),
                           ),
-                        ] else ...[
-                          const Icon(
-                            Icons.timer_off,
-                            size: 64,
-                            color: AppTheme.textLight,
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'لا يوجد رمز تحقق نشط',
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
                         ],
                       ],
                     ),
@@ -341,17 +406,18 @@ class _OtpScreenState extends State<OtpScreen>
               const Spacer(),
               
               // Generate New OTP Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _generateNewOtp,
-                  icon: const Icon(Icons.security),
-                  label: const Text('عرض رمز التحقق'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+              if (_error == null)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _generateNewOtp,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('تجديد رمز التحقق'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
                   ),
                 ),
-              ),
               
               const SizedBox(height: 16),
               
@@ -386,7 +452,7 @@ class _OtpScreenState extends State<OtpScreen>
                           ),
                           const SizedBox(height: 4),
                           const Text(
-                            'أعط هذا الرمز لمزود الخدمة عند إضافة دين جديد للتحقق من العملية',
+                            'أعط هذا الرمز لمزود الخدمة عند إضافة دين جديد للتحقق من العملية. الرمز يتغير كل دقيقة.',
                             style: TextStyle(
                               fontSize: 12,
                               color: AppTheme.textSecondary,

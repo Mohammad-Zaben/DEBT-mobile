@@ -5,7 +5,7 @@ import '../models/models.dart';
 
 class ApiService {
   // TODO: Replace with your actual API base URL
-  static const String baseUrl = 'https://thick-plants-judge.loca.lt';
+  static const String baseUrl = 'https://558afa45f32c.ngrok-free.app';
   
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();
@@ -52,7 +52,7 @@ class ApiService {
   bool get isLoggedIn => _token != null;
 
   // Login
-  Future<ApiResponse<User>> login({
+ Future<ApiResponse<User>> login({
     required String email,
     required String password,
   }) async {
@@ -70,9 +70,11 @@ class ApiService {
         final data = jsonDecode(response.body);
         await _saveToken(data['access_token']);
         
-        // Get user info after login
-        final userResponse = await getCurrentUser();
-        return userResponse;
+        // Extract user data from the response
+        final userData = data['user'];
+        final user = User.fromJson(userData);
+        
+        return ApiResponse.success(user);
       } else {
         final error = jsonDecode(response.body);
         return ApiResponse.error(error['detail'] ?? 'خطأ في تسجيل الدخول');

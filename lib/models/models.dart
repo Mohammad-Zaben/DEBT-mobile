@@ -5,6 +5,7 @@ class User {
   final String email;
   final String role;
   final String? providerType;
+  final String? secretKey; // Add this field
   final DateTime createdAt;
 
   User({
@@ -13,6 +14,7 @@ class User {
     required this.email,
     required this.role,
     this.providerType,
+    this.secretKey, // Add this parameter
     required this.createdAt,
   });
 
@@ -23,6 +25,7 @@ class User {
       email: json['email'],
       role: json['role'],
       providerType: json['provider_type'],
+      secretKey: json['secret_key'], // Add this line
       createdAt: DateTime.parse(json['created_at']),
     );
   }
