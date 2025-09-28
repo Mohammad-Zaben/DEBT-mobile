@@ -4,8 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 
 class ApiService {
-  // TODO: Replace with your actual API base URL
-  static const String baseUrl = 'https://558afa45f32c.ngrok-free.app';
+  static const String baseUrl = 'https://2b1966f731b5.ngrok-free.app';
   
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();
@@ -13,6 +12,7 @@ class ApiService {
   ApiService._internal();
 
   String? _token;
+  bool _isInitialized = false;
 
   // Headers for requests
   Map<String, String> get _headers {
@@ -30,8 +30,11 @@ class ApiService {
 
   // Initialize token from storage
   Future<void> initialize() async {
+    if (_isInitialized) return;
+    
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString('auth_token');
+    _isInitialized = true;
   }
 
   // Save token to storage
@@ -49,10 +52,24 @@ class ApiService {
   }
 
   // Check if user is logged in
-  bool get isLoggedIn => _token != null;
+  bool get isLoggedIn => _token != null && _token!.isNotEmpty;
+
+  // Validate current token by making a test API call
+  Future<bool> validateToken() async {
+    if (!isLoggedIn) return false;
+    
+    try {
+      final response = await getCurrentUser();
+      return response.success;
+    } catch (e) {
+      // Token is invalid, clear it
+      await clearToken();
+      return false;
+    }
+  }
 
   // Login
- Future<ApiResponse<User>> login({
+  Future<ApiResponse<User>> login({
     required String email,
     required String password,
   }) async {
@@ -82,6 +99,11 @@ class ApiService {
     } catch (e) {
       return ApiResponse.error('خطأ في الاتصال بالخادم');
     }
+  }
+
+  // Logout
+  Future<void> logout() async {
+    await clearToken();
   }
 
   // Register User
@@ -156,6 +178,10 @@ class ApiService {
         final data = jsonDecode(response.body);
         return ApiResponse.success(User.fromJson(data));
       } else {
+        // If unauthorized, clear token
+        if (response.statusCode == 401) {
+          await clearToken();
+        }
         return ApiResponse.error('خطأ في جلب بيانات المستخدم');
       }
     } catch (e) {
@@ -344,7 +370,6 @@ class ApiService {
     }
   }
 
-
   // Get user invitations (for users to see pending invitations)
   Future<ApiResponse<List<UserProviderInvitation>>> getUserInvitations() async {
     try {
@@ -388,8 +413,6 @@ class ApiService {
       return ApiResponse.error('خطأ في الاتصال بالخادم');
     }
   }
-
-
 }
 
 // API Response wrapper
@@ -408,4 +431,3 @@ class ApiResponse<T> {
     return ApiResponse._(success: false, error: error);
   }
 }
-

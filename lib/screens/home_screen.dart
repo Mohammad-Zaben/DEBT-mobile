@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/app_theme.dart';
 import '../models/models.dart';
-import 'login_screen.dart';
+import 'welcome_screen.dart';
 import 'otp_screen.dart';
 import 'providers_list_screen.dart';
 import 'create_transaction_screen.dart';
@@ -58,19 +58,46 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _logout() async {
-    await ApiService().clearToken();
-    if (mounted) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => 
-              const LoginScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-        ),
-        (route) => false,
-      );
+    // Show confirmation dialog
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('تسجيل الخروج'),
+        content: const Text('هل أنت متأكد من تسجيل الخروج؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.errorColor,
+            ),
+            child: const Text('تسجيل الخروج'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogout == true) {
+      // Clear token and navigate to welcome screen
+      await ApiService().logout();
+      
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => 
+                const WelcomeScreen(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+          ),
+          (route) => false,
+        );
+      }
     }
   }
 
@@ -148,6 +175,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           Icons.logout,
                           color: Colors.white,
                         ),
+                        tooltip: 'تسجيل الخروج',
                       ),
                     ],
                   ),
@@ -263,8 +291,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return 'مستخدم';
   }
 
-  
-
   List<Widget> _buildProviderActions() {
     return [
       Row(
@@ -360,115 +386,111 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     ];
   }
 
-
-
-List<Widget> _buildUserActions() {
-  return [
-    Row(
-      children: [
-        Expanded(
-          child: _buildActionCard(
-            title: 'رمز التحقق',
-            subtitle: 'احصل على رمز OTP',
-            icon: Icons.security,
-            color: AppTheme.primaryColor,
-            onTap: () {
-              Navigator.push(
-                context,
-                PageRouteBuilder(
-                  pageBuilder: (context, animation, secondaryAnimation) => 
-                      const OtpScreen(),
-                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                    return SlideTransition(
-                      position: animation.drive(
-                        Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
-                          .chain(CurveTween(curve: Curves.ease)),
-                      ),
-                      child: child,
-                    );
-                  },
-                ),
-              );
-            },
+  List<Widget> _buildUserActions() {
+    return [
+      Row(
+        children: [
+          Expanded(
+            child: _buildActionCard(
+              title: 'رمز التحقق',
+              subtitle: 'احصل على رمز OTP',
+              icon: Icons.security,
+              color: AppTheme.primaryColor,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) => 
+                        const OtpScreen(),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      return SlideTransition(
+                        position: animation.drive(
+                          Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
+                            .chain(CurveTween(curve: Curves.ease)),
+                        ),
+                        child: child,
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildActionCard(
-            title: 'حسابي',
-            subtitle: 'إعدادات الحساب والطلبات',
-            icon: Icons.person,
-            color: AppTheme.accentColor,
-            onTap: () {
-              Navigator.push(
-                context,
-                PageRouteBuilder(
-                  pageBuilder: (context, animation, secondaryAnimation) => 
-                      UserAccountScreen(user: widget.user),
-                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                    return SlideTransition(
-                      position: animation.drive(
-                        Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
-                          .chain(CurveTween(curve: Curves.ease)),
-                      ),
-                      child: child,
-                    );
-                  },
-                ),
-              );
-            },
+          const SizedBox(width: 16),
+          Expanded(
+            child: _buildActionCard(
+              title: 'حسابي',
+              subtitle: 'إعدادات الحساب والطلبات',
+              icon: Icons.person,
+              color: AppTheme.accentColor,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) => 
+                        UserAccountScreen(user: widget.user),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      return SlideTransition(
+                        position: animation.drive(
+                          Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
+                            .chain(CurveTween(curve: Curves.ease)),
+                        ),
+                        child: child,
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-      ],
-    ),
-    const SizedBox(height: 16),
-    Row(
-      children: [
-        Expanded(
-          child: _buildActionCard(
-            title: 'مزودي الخدمة',
-            subtitle: 'عرض جميع المزودين',
-            icon: Icons.people,
-            color: AppTheme.successColor,
-            onTap: () {
-              Navigator.push(
-                context,
-                PageRouteBuilder(
-                  pageBuilder: (context, animation, secondaryAnimation) => 
-                      const ProvidersListScreen(),
-                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                    return SlideTransition(
-                      position: animation.drive(
-                        Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
-                          .chain(CurveTween(curve: Curves.ease)),
-                      ),
-                      child: child,
-                    );
-                  },
-                ),
-              );
-            },
+        ],
+      ),
+      const SizedBox(height: 16),
+      Row(
+        children: [
+          Expanded(
+            child: _buildActionCard(
+              title: 'مزودي الخدمة',
+              subtitle: 'عرض جميع المزودين',
+              icon: Icons.people,
+              color: AppTheme.successColor,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) => 
+                        const ProvidersListScreen(),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      return SlideTransition(
+                        position: animation.drive(
+                          Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
+                            .chain(CurveTween(curve: Curves.ease)),
+                        ),
+                        child: child,
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildActionCard(
-            title: 'الديون',
-            subtitle: 'تتبع ديونك',
-            icon: Icons.credit_card,
-            color: AppTheme.warningColor,
-            onTap: () {
-              // TODO: Navigate to debts screen
-              _showComingSoon('الديون');
-            },
+          const SizedBox(width: 16),
+          Expanded(
+            child: _buildActionCard(
+              title: 'الديون',
+              subtitle: 'تتبع ديونك',
+              icon: Icons.credit_card,
+              color: AppTheme.warningColor,
+              onTap: () {
+                // TODO: Navigate to debts screen
+                _showComingSoon('الديون');
+              },
+            ),
           ),
-        ),
-      ],
-    ),
-  ];
-}
-
-
+        ],
+      ),
+    ];
+  }
 
   Widget _buildActionCard({
     required String title,

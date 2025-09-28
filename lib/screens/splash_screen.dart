@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../services/api_service.dart';
 import '../utils/app_theme.dart';
-import 'login_screen.dart';
+import 'welcome_screen.dart';
 import 'home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -69,50 +69,60 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _initializeApp() async {
-    // Start animations
-    _logoController.forward();
-    await Future.delayed(const Duration(milliseconds: 500));
-    _fadeController.forward();
-    
-    // Initialize API service
-    await ApiService().initialize();
-    
-    // Check if user is already logged in
-    final isLoggedIn = ApiService().isLoggedIn;
-    
-    // Wait for animations to complete (minimum splash duration)
-    await Future.delayed(const Duration(milliseconds: 3000));
-    
-    if (mounted) {
+    try {
+      // Start animations
+      _logoController.forward();
+      await Future.delayed(const Duration(milliseconds: 500));
+      _fadeController.forward();
+      
+      // Initialize API service
+      await ApiService().initialize();
+      
+      // Wait for animations to complete (minimum splash duration)
+      await Future.delayed(const Duration(milliseconds: 2500));
+      
+      if (!mounted) return;
+      
+      // Check if user is already logged in
+      final isLoggedIn = ApiService().isLoggedIn;
+      
       if (isLoggedIn) {
-        // User is logged in, get user data and go to home
-        try {
+        // Validate the token by making a test API call
+        final isValidToken = await ApiService().validateToken();
+        
+        if (isValidToken) {
+          // Token is valid, get user data and go to home
           final userResponse = await ApiService().getCurrentUser();
-          if (userResponse.success && userResponse.data != null) {
+          if (userResponse.success && userResponse.data != null && mounted) {
             _navigateToHome(userResponse.data!);
-          } else {
-            // Token might be expired, go to login
-            await ApiService().clearToken();
-            _navigateToLogin();
+            return;
           }
-        } catch (e) {
-          // Error getting user data, go to login
-          await ApiService().clearToken();
-          _navigateToLogin();
         }
-      } else {
-        // User not logged in, go to login
-        _navigateToLogin();
+        
+        // Token is invalid or expired, clear it and go to welcome
+        await ApiService().clearToken();
+      }
+      
+      // User not logged in or token invalid, go to welcome screen
+      if (mounted) {
+        _navigateToWelcome();
+      }
+      
+    } catch (e) {
+      // Handle any errors by clearing token and going to welcome
+      await ApiService().clearToken();
+      if (mounted) {
+        _navigateToWelcome();
       }
     }
   }
 
-  void _navigateToLogin() {
+  void _navigateToWelcome() {
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => 
-            const LoginScreen(),
+            const WelcomeScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(
             opacity: animation,
