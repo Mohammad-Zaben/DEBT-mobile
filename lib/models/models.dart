@@ -5,7 +5,7 @@ class User {
   final String email;
   final String role;
   final String? providerType;
-  final String? secretKey; // Add this field
+  final String? secretKey;
   final DateTime createdAt;
 
   User({
@@ -14,7 +14,7 @@ class User {
     required this.email,
     required this.role,
     this.providerType,
-    this.secretKey, // Add this parameter
+    this.secretKey,
     required this.createdAt,
   });
 
@@ -25,9 +25,22 @@ class User {
       email: json['email'],
       role: json['role'],
       providerType: json['provider_type'],
-      secretKey: json['secret_key'], // Add this line
+      secretKey: json['secret_key'],
       createdAt: DateTime.parse(json['created_at']),
     );
+  }
+
+  // ADD THIS METHOD
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'role': role,
+      'provider_type': providerType,
+      'secret_key': secretKey,
+      'created_at': createdAt.toIso8601String(),
+    };
   }
 
   bool get isUser => role == 'User';
@@ -56,6 +69,15 @@ class UserPublicInfo {
       email: json['email'],
     );
   }
+
+  // ADD THIS METHOD
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+    };
+  }
 }
 
 // Provider Models
@@ -66,7 +88,7 @@ class LinkedProvider {
   final String providerEmail;
   final LinkStatus status;
   final DateTime createdAt;
-  final String? providerType; // 'lender' or 'payer' - can be null from API
+  final String? providerType;
 
   LinkedProvider({
     required this.id,
@@ -90,6 +112,19 @@ class LinkedProvider {
       createdAt: DateTime.parse(json['created_at']),
       providerType: json['provider_type'],
     );
+  }
+
+  // ADD THIS METHOD
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'provider_id': providerId,
+      'provider_name': providerName,
+      'provider_email': providerEmail,
+      'status': status.toString().split('.').last,
+      'created_at': createdAt.toIso8601String(),
+      'provider_type': providerType,
+    };
   }
 }
 
@@ -122,6 +157,18 @@ class LinkedClient {
       createdAt: DateTime.parse(json['created_at']),
     );
   }
+
+  // ADD THIS METHOD
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'user_id': userId,
+      'user_name': userName,
+      'user_email': userEmail,
+      'status': status.toString().split('.').last,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
 }
 
 class UserProviderLink {
@@ -149,6 +196,17 @@ class UserProviderLink {
       ),
       createdAt: DateTime.parse(json['created_at']),
     );
+  }
+
+  // ADD THIS METHOD
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'user_id': userId,
+      'provider_id': providerId,
+      'status': status.toString().split('.').last,
+      'created_at': createdAt.toIso8601String(),
+    };
   }
 }
 
@@ -192,6 +250,20 @@ class Transaction {
       description: json['description'],
     );
   }
+
+  // ADD THIS METHOD
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'user_id': userId,
+      'provider_id': providerId,
+      'type': type.toString().split('.').last,
+      'amount': amount,
+      'status': status.toString().split('.').last,
+      'date': date.toIso8601String(),
+      'description': description,
+    };
+  }
 }
 
 enum TransactionType { debt, payment }
@@ -222,6 +294,17 @@ class BalanceSummary {
       balance: json['balance'].toString(),
     );
   }
+
+  // ADD THIS METHOD
+  Map<String, dynamic> toJson() {
+    return {
+      'user_id': userId,
+      'provider_id': providerId,
+      'total_debt': totalDebt,
+      'total_payments': totalPayments,
+      'balance': balance,
+    };
+  }
 }
 
 // Employer Models (for Payer providers)
@@ -251,6 +334,18 @@ class Employer {
       createdAt: DateTime.parse(json['created_at']),
       paymentCount: json['payment_count'] ?? 0,
     );
+  }
+
+  // ADD THIS METHOD
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'contact_info': contactInfo,
+      'created_by': createdBy,
+      'created_at': createdAt.toIso8601String(),
+      'payment_count': paymentCount,
+    };
   }
 }
 
@@ -290,6 +385,20 @@ class WorkPayment {
       createdAt: DateTime.parse(json['created_at']),
     );
   }
+
+  // ADD THIS METHOD
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'employer_id': employerId,
+      'employer_name': employerName,
+      'provider_id': providerId,
+      'amount': amount,
+      'description': description,
+      'payment_date': paymentDate?.toIso8601String(),
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
 }
 
 class WorkPaymentSummary {
@@ -315,10 +424,17 @@ class WorkPaymentSummary {
           : null,
     );
   }
+
+  // ADD THIS METHOD
+  Map<String, dynamic> toJson() {
+    return {
+      'total_payments': totalPayments,
+      'total_amount': totalAmount,
+      'employers_count': employersCount,
+      'last_payment_date': lastPaymentDate?.toIso8601String(),
+    };
+  }
 }
-
-
-// Add this class to your existing lib/models/models.dart file
 
 class UserProviderInvitation {
   final int id;
@@ -348,5 +464,17 @@ class UserProviderInvitation {
       ),
       createdAt: DateTime.parse(json['created_at']),
     );
+  }
+
+  // ADD THIS METHOD
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'provider_id': providerId,
+      'provider_name': providerName,
+      'provider_email': providerEmail,
+      'status': status.toString().split('.').last,
+      'created_at': createdAt.toIso8601String(),
+    };
   }
 }

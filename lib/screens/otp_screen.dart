@@ -197,276 +197,262 @@ class _OtpScreenState extends State<OtpScreen>
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            children: [
-              const SizedBox(height: 40),
-              
-              // Icon and Title
-              FadeTransition(
-                opacity: _fadeAnimation,
-                child: Column(
-                  children: [
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(50),
-                      ),
-                      child: const Icon(
-                        Icons.security,
-                        size: 50,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'رمز التحقق الآمن',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'استخدم هذا الرمز للتحقق من العمليات المالية',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: AppTheme.textSecondary,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(height: 60),
-              
-              // OTP Display Card
-              SlideTransition(
-                position: _slideAnimation,
-                child: FadeTransition(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              children: [
+                const SizedBox(height: 40),
+                
+                // Icon and Title
+                FadeTransition(
                   opacity: _fadeAnimation,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(32),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(50),
                         ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        if (_isLoading) ...[
-                          const CircularProgressIndicator(
-                            color: AppTheme.primaryColor,
+                        child: const Icon(
+                          Icons.security,
+                          size: 50,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'رمز التحقق الآمن',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'استخدم هذا الرمز للتحقق من العمليات المالية',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: AppTheme.textSecondary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 60),
+                
+                // OTP Display Card
+                SlideTransition(
+                  position: _slideAnimation,
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
                           ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'جاري إنشاء رمز التحقق...',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: AppTheme.textSecondary,
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          if (_isLoading) ...[
+                            const CircularProgressIndicator(
+                              color: AppTheme.primaryColor,
                             ),
-                          ),
-                        ] else if (_error != null) ...[
-                          const Icon(
-                            Icons.error_outline,
-                            size: 64,
-                            color: AppTheme.errorColor,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            _error!,
-                            style: const TextStyle(
-                              fontSize: 16,
+                            const SizedBox(height: 16),
+                            const Text(
+                              'جاري إنشاء رمز التحقق...',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ] else if (_error != null) ...[
+                            const Icon(
+                              Icons.error_outline,
+                              size: 64,
                               color: AppTheme.errorColor,
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: _loadUserAndGenerateOtp,
-                            child: const Text('إعادة المحاولة'),
-                          ),
-                        ] else if (_currentOtp.isNotEmpty) ...[
-                          const Text(
-                            'رمز التحقق الحالي',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimary,
+                            const SizedBox(height: 16),
+                            Text(
+                              _error!,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: AppTheme.errorColor,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
-                          ),
-                          const SizedBox(height: 20),
-                          
-                          // OTP Display
-                          AnimatedBuilder(
-                            animation: _pulseAnimation,
-                            builder: (context, child) {
-                              return Transform.scale(
-                                scale: _pulseAnimation.value,
-                                child: Container(
-                                  width: 200,
-                                  height: 120,
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primaryColor,
-                                    borderRadius: BorderRadius.circular(20),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppTheme.primaryColor.withOpacity(0.3),
-                                        blurRadius: 20,
-                                        spreadRadius: 5,
-                                      ),
-                                    ],
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      _currentOtp,
-                                      style: const TextStyle(
-                                        fontSize: 32,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                        letterSpacing: 4,
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: _loadUserAndGenerateOtp,
+                              child: const Text('إعادة المحاولة'),
+                            ),
+                          ] else if (_currentOtp.isNotEmpty) ...[
+                            const Text(
+                              'رمز التحقق الحالي',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            
+                            // OTP Display
+                            AnimatedBuilder(
+                              animation: _pulseAnimation,
+                              builder: (context, child) {
+                                return Transform.scale(
+                                  scale: _pulseAnimation.value,
+                                  child: Container(
+                                    width: 200,
+                                    height: 120,
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryColor,
+                                      borderRadius: BorderRadius.circular(20),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppTheme.primaryColor.withOpacity(0.3),
+                                          blurRadius: 20,
+                                          spreadRadius: 5,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        _currentOtp,
+                                        style: const TextStyle(
+                                          fontSize: 32,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                          letterSpacing: 4,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              );
-                            },
-                          ),
-                          
-                          const SizedBox(height: 24),
-                          
-                          // Timer
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: _secondsRemaining > 10 
-                                  ? AppTheme.successColor.withOpacity(0.1)
-                                  : AppTheme.warningColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
+                                );
+                              },
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.access_time,
-                                  size: 16,
-                                  color: _secondsRemaining > 10 
-                                      ? AppTheme.successColor
-                                      : AppTheme.warningColor,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'ينتهي خلال ${_formatTime(_secondsRemaining)}',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
+                            
+                            const SizedBox(height: 24),
+                            
+                            // Timer
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _secondsRemaining > 10 
+                                    ? AppTheme.successColor.withOpacity(0.1)
+                                    : AppTheme.warningColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.access_time,
+                                    size: 16,
                                     color: _secondsRemaining > 10 
                                         ? AppTheme.successColor
                                         : AppTheme.warningColor,
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          
-                          const SizedBox(height: 24),
-                          
-                          // Copy Button
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: _copyOtpToClipboard,
-                              icon: const Icon(Icons.copy),
-                              label: const Text('نسخ الرمز'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.accentColor,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'ينتهي خلال ${_formatTime(_secondsRemaining)}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: _secondsRemaining > 10 
+                                          ? AppTheme.successColor
+                                          : AppTheme.warningColor,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              
-              const Spacer(),
-              
-              // Generate New OTP Button
-              if (_error == null)
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _generateNewOtp,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('تجديد رمز التحقق'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                  ),
-                ),
-              
-              const SizedBox(height: 16),
-              
-              // Info Card
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppTheme.primaryColor.withOpacity(0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: AppTheme.primaryColor,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'كيفية الاستخدام',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.primaryColor,
+                            
+                            const SizedBox(height: 24),
+                            
+                            // Copy Button
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: _copyOtpToClipboard,
+                                icon: const Icon(Icons.copy),
+                                label: const Text('نسخ الرمز'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.accentColor,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'أعط هذا الرمز لمزود الخدمة عند إضافة دين جديد للتحقق من العملية. الرمز يتغير كل دقيقة.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
+                          ],
                         ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
-              
-              const SizedBox(height: 20),
-            ],
+                
+                
+                const SizedBox(height: 16),
+                
+                // Info Card
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppTheme.primaryColor.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: AppTheme.primaryColor,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'كيفية الاستخدام',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'أعط هذا الرمز لمزود الخدمة عند إضافة دين جديد للتحقق من العملية. الرمز يتغير كل دقيقة.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

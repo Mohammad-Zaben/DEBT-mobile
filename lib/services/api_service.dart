@@ -1,18 +1,22 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
+import 'storage_service.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://2b1966f731b5.ngrok-free.app';
+  static const String baseUrl = 'https://99e221185e21.ngrok-free.app';
   
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
   ApiService._internal();
 
+  final StorageService _storage = StorageService();
+  
   String? _token;
   bool _isInitialized = false;
+  bool _isConnected = true;
 
   // Headers for requests
   Map<String, String> get _headers {
@@ -28,51 +32,84 @@ class ApiService {
     return headers;
   }
 
+  // Simple connectivity check
+  Future<bool> _checkConnectivity() async {
+    try {
+      final result = await InternetAddress.lookup('google.com')
+          .timeout(const Duration(seconds: 3));
+      
+      _isConnected = result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+      return _isConnected;
+    } catch (e) {
+      _isConnected = false;
+      return false;
+    }
+  }
+
   // Initialize token from storage
   Future<void> initialize() async {
     if (_isInitialized) return;
     
-    final prefs = await SharedPreferences.getInstance();
-    _token = prefs.getString('auth_token');
+    await _storage.initialize();
+    _token = _storage.getAuthToken();
     _isInitialized = true;
   }
 
   // Save token to storage
   Future<void> _saveToken(String token) async {
     _token = token;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('auth_token', token);
+    await _storage.saveAuthToken(token);
   }
 
   // Clear token from storage
   Future<void> clearToken() async {
     _token = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
+    await _storage.clearAuthToken();
+    await _storage.clearAllCache();
   }
 
   // Check if user is logged in
   bool get isLoggedIn => _token != null && _token!.isNotEmpty;
 
-  // Validate current token by making a test API call
+  // Validate current token - works offline with cached data
   Future<bool> validateToken() async {
     if (!isLoggedIn) return false;
+    
+    // Try to get cached user first (offline support)
+    final cachedUser = _storage.getCachedUser();
+    if (cachedUser != null) {
+      // If we have cached user data, consider token valid for offline use
+      return true;
+    }
+    
+    // If no cached data, check connectivity and try to validate online
+    final hasConnection = await _checkConnectivity();
+    if (!hasConnection) {
+      // No internet and no cached data - token is invalid
+      return false;
+    }
     
     try {
       final response = await getCurrentUser();
       return response.success;
     } catch (e) {
-      // Token is invalid, clear it
+      // Network error - if we had cached data, we'd return true above
       await clearToken();
       return false;
     }
   }
 
-  // Login
+  // Enhanced login with caching
   Future<ApiResponse<User>> login({
     required String email,
     required String password,
   }) async {
+    // Check connectivity
+    final hasConnection = await _checkConnectivity();
+    if (!hasConnection) {
+      return ApiResponse.error('لا يوجد اتصال بالإنترنت. يرجى المحاولة لاحقاً');
+    }
+
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
@@ -87,9 +124,10 @@ class ApiService {
         final data = jsonDecode(response.body);
         await _saveToken(data['access_token']);
         
-        // Extract user data from the response
+        // Extract and cache user data
         final userData = data['user'];
         final user = User.fromJson(userData);
+        await _storage.cacheUser(user);
         
         return ApiResponse.success(user);
       } else {
@@ -112,6 +150,11 @@ class ApiService {
     required String email,
     required String password,
   }) async {
+    final hasConnection = await _checkConnectivity();
+    if (!hasConnection) {
+      return ApiResponse.error('لا يوجد اتصال بالإنترنت. يرجى المحاولة لاحقاً');
+    }
+
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/auth/register'),
@@ -125,7 +168,8 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return ApiResponse.success(User.fromJson(data));
+        final user = User.fromJson(data);
+        return ApiResponse.success(user);
       } else {
         final error = jsonDecode(response.body);
         return ApiResponse.error(error['detail'] ?? 'خطأ في إنشاء الحساب');
@@ -140,8 +184,13 @@ class ApiService {
     required String name,
     required String email,
     required String password,
-    required String providerType, // 'lender' or 'payer'
+    required String providerType,
   }) async {
+    final hasConnection = await _checkConnectivity();
+    if (!hasConnection) {
+      return ApiResponse.error('لا يوجد اتصال بالإنترنت. يرجى المحاولة لاحقاً');
+    }
+
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/auth/provider'),
@@ -156,7 +205,8 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return ApiResponse.success(User.fromJson(data));
+        final user = User.fromJson(data);
+        return ApiResponse.success(user);
       } else {
         final error = jsonDecode(response.body);
         return ApiResponse.error(error['detail'] ?? 'خطأ في إنشاء حساب المزود');
@@ -166,8 +216,24 @@ class ApiService {
     }
   }
 
-  // Get current user info
+  // Enhanced getCurrentUser with offline support
   Future<ApiResponse<User>> getCurrentUser() async {
+    // First try to get cached user data
+    final cachedUser = _storage.getCachedUser();
+    
+    // Check connectivity
+    final hasConnection = await _checkConnectivity();
+    
+    if (!hasConnection) {
+      // Offline mode - return cached data if available
+      if (cachedUser != null) {
+        return ApiResponse.success(cachedUser);
+      } else {
+        return ApiResponse.error('لا يوجد اتصال بالإنترنت وقاعدة البيانات فارغة');
+      }
+    }
+
+    // Online mode - try to fetch fresh data
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/users/me'),
@@ -176,33 +242,54 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return ApiResponse.success(User.fromJson(data));
+        final user = User.fromJson(data);
+        
+        // Cache the fresh data
+        await _storage.cacheUser(user);
+        
+        return ApiResponse.success(user);
       } else {
         // If unauthorized, clear token
         if (response.statusCode == 401) {
           await clearToken();
         }
+        
+        // If we have cached data, return it as fallback
+        if (cachedUser != null) {
+          return ApiResponse.success(cachedUser);
+        }
+        
         return ApiResponse.error('خطأ في جلب بيانات المستخدم');
       }
     } catch (e) {
+      // Network error - return cached data if available
+      if (cachedUser != null) {
+        return ApiResponse.success(cachedUser);
+      }
       return ApiResponse.error('خطأ في الاتصال بالخادم');
     }
   }
 
   // Get public user info by ID (no authentication required)
   Future<ApiResponse<UserPublicInfo>> getUserPublicInfo(int userId) async {
+    final hasConnection = await _checkConnectivity();
+    if (!hasConnection) {
+      return ApiResponse.error('يتطلب هذا الإجراء اتصال بالإنترنت');
+    }
+
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/users/$userId/public'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-        }, // No auth token needed for public endpoint
+        },
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return ApiResponse.success(UserPublicInfo.fromJson(data));
+        final userInfo = UserPublicInfo.fromJson(data);
+        return ApiResponse.success(userInfo);
       } else {
         final error = jsonDecode(response.body);
         return ApiResponse.error(error['detail'] ?? 'خطأ في العثور على المستخدم');
@@ -212,8 +299,19 @@ class ApiService {
     }
   }
 
-  // Get my providers (for users)
+  // Enhanced getMyProviders with caching
   Future<ApiResponse<List<LinkedProvider>>> getMyProviders() async {
+    final cachedProviders = _storage.getCachedProviders();
+    final hasConnection = await _checkConnectivity();
+    
+    if (!hasConnection) {
+      if (cachedProviders != null) {
+        return ApiResponse.success(cachedProviders);
+      } else {
+        return ApiResponse.error('لا يوجد اتصال بالإنترنت وقاعدة البيانات فارغة');
+      }
+    }
+
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/links/my-providers'),
@@ -222,19 +320,38 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        final providers = data.map((json) => LinkedProvider.fromJson(json)).toList();
+        final List<LinkedProvider> providers = data.map((json) => LinkedProvider.fromJson(json)).toList();
+        
+        await _storage.cacheProviders(providers);
         return ApiResponse.success(providers);
       } else {
+        if (cachedProviders != null) {
+          return ApiResponse.success(cachedProviders);
+        }
         final error = jsonDecode(response.body);
         return ApiResponse.error(error['detail'] ?? 'خطأ في جلب مزودي الخدمة');
       }
     } catch (e) {
+      if (cachedProviders != null) {
+        return ApiResponse.success(cachedProviders);
+      }
       return ApiResponse.error('خطأ في الاتصال بالخادم');
     }
   }
 
-  // Get my clients (for providers)
+  // Enhanced getMyClients with caching
   Future<ApiResponse<List<LinkedClient>>> getMyClients() async {
+    final cachedClients = _storage.getCachedClients();
+    final hasConnection = await _checkConnectivity();
+    
+    if (!hasConnection) {
+      if (cachedClients != null) {
+        return ApiResponse.success(cachedClients);
+      } else {
+        return ApiResponse.error('لا يوجد اتصال بالإنترنت وقاعدة البيانات فارغة');
+      }
+    }
+
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/links/my-clients'),
@@ -243,19 +360,39 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        final clients = data.map((json) => LinkedClient.fromJson(json)).toList();
+        final List<LinkedClient> clients = data.map((json) => LinkedClient.fromJson(json)).toList();
+        
+        await _storage.cacheClients(clients);
         return ApiResponse.success(clients);
       } else {
+        if (cachedClients != null) {
+          return ApiResponse.success(cachedClients);
+        }
         final error = jsonDecode(response.body);
         return ApiResponse.error(error['detail'] ?? 'خطأ في جلب العملاء');
       }
     } catch (e) {
+      if (cachedClients != null) {
+        return ApiResponse.success(cachedClients);
+      }
       return ApiResponse.error('خطأ في الاتصال بالخادم');
     }
   }
 
-  // Get transactions between user and provider
+  // Enhanced getTransactionsPair with caching
   Future<ApiResponse<List<Transaction>>> getTransactionsPair(int userId, int providerId) async {
+    final cacheKey = '${userId}_$providerId';
+    final cachedTransactions = _storage.getCachedTransactions(cacheKey);
+    final hasConnection = await _checkConnectivity();
+    
+    if (!hasConnection) {
+      if (cachedTransactions != null) {
+        return ApiResponse.success(cachedTransactions);
+      } else {
+        return ApiResponse.error('لا يوجد اتصال بالإنترنت وقاعدة البيانات فارغة');
+      }
+    }
+
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/transactions/pair/$userId/$providerId'),
@@ -264,19 +401,39 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        final transactions = data.map((json) => Transaction.fromJson(json)).toList();
+        final List<Transaction> transactions = data.map((json) => Transaction.fromJson(json)).toList();
+        
+        await _storage.cacheTransactions(cacheKey, transactions);
         return ApiResponse.success(transactions);
       } else {
+        if (cachedTransactions != null) {
+          return ApiResponse.success(cachedTransactions);
+        }
         final error = jsonDecode(response.body);
         return ApiResponse.error(error['detail'] ?? 'خطأ في جلب المعاملات');
       }
     } catch (e) {
+      if (cachedTransactions != null) {
+        return ApiResponse.success(cachedTransactions);
+      }
       return ApiResponse.error('خطأ في الاتصال بالخادم');
     }
   }
 
-  // Get balance between user and provider
+  // Enhanced getBalance with caching
   Future<ApiResponse<BalanceSummary>> getBalance(int userId, int providerId) async {
+    final cacheKey = '${userId}_$providerId';
+    final cachedBalance = _storage.getCachedBalance(cacheKey);
+    final hasConnection = await _checkConnectivity();
+    
+    if (!hasConnection) {
+      if (cachedBalance != null) {
+        return ApiResponse.success(cachedBalance);
+      } else {
+        return ApiResponse.error('لا يوجد اتصال بالإنترنت وقاعدة البيانات فارغة');
+      }
+    }
+
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/transactions/balance/$userId/$providerId'),
@@ -285,23 +442,37 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return ApiResponse.success(BalanceSummary.fromJson(data));
+        final balance = BalanceSummary.fromJson(data);
+        
+        await _storage.cacheBalance(cacheKey, balance);
+        return ApiResponse.success(balance);
       } else {
+        if (cachedBalance != null) {
+          return ApiResponse.success(cachedBalance);
+        }
         final error = jsonDecode(response.body);
         return ApiResponse.error(error['detail'] ?? 'خطأ في جلب الرصيد');
       }
     } catch (e) {
+      if (cachedBalance != null) {
+        return ApiResponse.success(cachedBalance);
+      }
       return ApiResponse.error('خطأ في الاتصال بالخادم');
     }
   }
 
-  // Create transaction (for providers)
+  // Create transaction (requires internet)
   Future<ApiResponse<Transaction>> createTransaction({
     required int userId,
-    required String type, // 'debt' or 'payment'
+    required String type,
     required String amount,
     String? otp,
   }) async {
+    final hasConnection = await _checkConnectivity();
+    if (!hasConnection) {
+      return ApiResponse.error('يتطلب إنشاء المعاملات اتصال بالإنترنت');
+    }
+
     try {
       final body = {
         'user_id': userId,
@@ -321,7 +492,8 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return ApiResponse.success(Transaction.fromJson(data));
+        final transaction = Transaction.fromJson(data);
+        return ApiResponse.success(transaction);
       } else {
         final error = jsonDecode(response.body);
         return ApiResponse.error(error['detail'] ?? 'خطأ في إنشاء المعاملة');
@@ -331,8 +503,13 @@ class ApiService {
     }
   }
 
-  // Initialize OTP
+  // Initialize OTP (requires internet)
   Future<ApiResponse<String>> initOtp() async {
+    final hasConnection = await _checkConnectivity();
+    if (!hasConnection) {
+      return ApiResponse.error('يتطلب تهيئة OTP اتصال بالإنترنت');
+    }
+
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/otp/init'),
@@ -349,8 +526,13 @@ class ApiService {
     }
   }
 
-  // Link provider to client
+  // Link provider to client (requires internet)
   Future<ApiResponse<UserProviderLink>> linkToClient(int userId) async {
+    final hasConnection = await _checkConnectivity();
+    if (!hasConnection) {
+      return ApiResponse.error('يتطلب ربط العملاء اتصال بالإنترنت');
+    }
+
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/links/link'),
@@ -360,7 +542,8 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return ApiResponse.success(UserProviderLink.fromJson(data));
+        final link = UserProviderLink.fromJson(data);
+        return ApiResponse.success(link);
       } else {
         final error = jsonDecode(response.body);
         return ApiResponse.error(error['detail'] ?? 'خطأ في ربط العميل');
@@ -370,8 +553,19 @@ class ApiService {
     }
   }
 
-  // Get user invitations (for users to see pending invitations)
+  // Enhanced getUserInvitations with caching
   Future<ApiResponse<List<UserProviderInvitation>>> getUserInvitations() async {
+    final cachedInvitations = _storage.getCachedInvitations();
+    final hasConnection = await _checkConnectivity();
+    
+    if (!hasConnection) {
+      if (cachedInvitations != null) {
+        return ApiResponse.success(cachedInvitations);
+      } else {
+        return ApiResponse.error('لا يوجد اتصال بالإنترنت وقاعدة البيانات فارغة');
+      }
+    }
+
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/links/invitations'),
@@ -380,31 +574,45 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        final invitations = data.map((json) => UserProviderInvitation.fromJson(json)).toList();
+        final List<UserProviderInvitation> invitations = data.map((json) => UserProviderInvitation.fromJson(json)).toList();
+        
+        await _storage.cacheInvitations(invitations);
         return ApiResponse.success(invitations);
       } else {
+        if (cachedInvitations != null) {
+          return ApiResponse.success(cachedInvitations);
+        }
         final error = jsonDecode(response.body);
         return ApiResponse.error(error['detail'] ?? 'خطأ في جلب الدعوات');
       }
     } catch (e) {
+      if (cachedInvitations != null) {
+        return ApiResponse.success(cachedInvitations);
+      }
       return ApiResponse.error('خطأ في الاتصال بالخادم');
     }
   }
 
-  // Update invitation status (approve/reject)
+  // Update invitation status (requires internet)
   Future<ApiResponse<UserProviderLink>> updateInvitationStatus(int invitationId, LinkStatus status) async {
+    final hasConnection = await _checkConnectivity();
+    if (!hasConnection) {
+      return ApiResponse.error('يتطلب تحديث حالة الدعوة اتصال بالإنترنت');
+    }
+
     try {
       final response = await http.put(
         Uri.parse('$baseUrl/links/invitations/$invitationId/status'),
         headers: _headers,
         body: jsonEncode({
-          'status': status.toString().split('.').last, // Convert enum to string
+          'status': status.toString().split('.').last,
         }),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return ApiResponse.success(UserProviderLink.fromJson(data));
+        final link = UserProviderLink.fromJson(data);
+        return ApiResponse.success(link);
       } else {
         final error = jsonDecode(response.body);
         return ApiResponse.error(error['detail'] ?? 'خطأ في تحديث حالة الدعوة');
@@ -413,6 +621,36 @@ class ApiService {
       return ApiResponse.error('خطأ في الاتصال بالخادم');
     }
   }
+
+  // Check if data should be refreshed
+  bool shouldRefreshData() {
+    return _storage.isDataStale();
+  }
+
+  // Force sync when connection is available
+  Future<void> syncWhenOnline() async {
+    final hasConnection = await _checkConnectivity();
+    if (hasConnection && isLoggedIn) {
+      // Refresh user data
+      await getCurrentUser();
+      
+      // Get current user to determine what to sync
+      final user = _storage.getCachedUser();
+      if (user != null) {
+        if (user.isUser) {
+          // Sync user-specific data
+          await getMyProviders();
+          await getUserInvitations();
+        } else if (user.isProvider) {
+          // Sync provider-specific data
+          await getMyClients();
+        }
+      }
+    }
+  }
+
+  // Get connectivity status
+  bool get isConnected => _isConnected;
 }
 
 // API Response wrapper
